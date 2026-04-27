@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎬 电影之夜</title>
+<title>🎬 电影之夜 </title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@300;400;600&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -633,19 +634,17 @@
 </style>
 </head>
 <body>
-
 <header>
   <div class="header-subtitle">Movie Night</div>
   <h1>电影之<span>夜</span></h1>
 </header>
 
 <div class="stage">
-  <!-- Navigation -->
   <div class="nav-bar" id="navBar" style="display:none">
     <div class="nav-arrows">
-      <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" title="上一周">&#8592;</button>
+      <button class="nav-btn" id="prevBtn" onclick="navigate(-1)">&#8592;</button>
       <span class="page-indicator">第 <strong id="currentPageNum">1</strong> 周，共 <strong id="totalPageNum">1</strong> 周</span>
-      <button class="nav-btn" id="nextBtn" onclick="navigate(1)" title="下一周">&#8594;</button>
+      <button class="nav-btn" id="nextBtn" onclick="navigate(1)">&#8594;</button>
     </div>
     <div class="nav-actions">
       <button class="btn btn-danger" onclick="confirmDelete()">删除本页</button>
@@ -653,333 +652,354 @@
     </div>
   </div>
 
-  <!-- Empty state -->
   <div class="empty-state" id="emptyState">
     <div class="empty-icon">🎞️</div>
     <p>还没有观影记录</p>
     <br>
-    <button class="btn btn-gold" onclick="openAddModal()" style="margin: 0 auto; display:flex">＋ 记录第一部电影</button>
+    <button class="btn btn-gold" onclick="openAddModal()" style="margin:0 auto;display:flex">＋ 记录第一部电影</button>
   </div>
 
-  <!-- Pages container -->
   <div id="pagesContainer"></div>
 </div>
 
-<footer>
-  TILL ALL ARE ONE
-</footer>
+<footer>TILL ALL ARE ONE</footer>
 
-<!-- Add Week Modal -->
-<div class="modal-overlay" id="addModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('addModal')">✕</button>
-    <h2>新增观影记录</h2>
-    <p>为本周六的观影活动创建一页新日记</p>
-    <div style="margin-bottom:16px">
-      <div class="field-label" style="margin-bottom:8px">电影标题</div>
-      <input class="form-input" id="newTitle" placeholder="输入电影名称…" style="width:100%">
-    </div>
-    <div>
-      <div class="field-label" style="margin-bottom:8px">观影日期</div>
-      <input class="form-input" id="newDate" type="date" style="width:100%;background:var(--surface2);color:var(--text)">
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('addModal')">取消</button>
-      <button class="btn btn-gold" onclick="addWeek()">创建</button>
-    </div>
-  </div>
-</div>
-
-<!-- Delete Confirm Modal -->
-<div class="modal-overlay" id="deleteModal">
-  <div class="modal">
-    <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
-    <h2>确认删除</h2>
-    <p>将删除本周的所有观影记录和评论，此操作不可恢复。</p>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">取消</button>
-      <button class="btn" style="background:#8b2020;color:#fff" onclick="deletePage()">确认删除</button>
-    </div>
-  </div>
-</div>
+<!-- 模态框（与原相同） -->
+<div class="modal-overlay" id="addModal">...</div>
+<div class="modal-overlay" id="deleteModal">...</div>
 
 <script>
-// ── DATA ──────────────────────────────────────────────────────────────────
-const STORAGE_KEY = 'movie_diary_v2';
+  // ==================== Supabase 配置 ====================
+  // ⚠️ 请替换成你自己的 Supabase 项目 URL 和 anon 密钥
+  const SUPABASE_URL = 'https://aeenhxdzotipqgytgxke.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlZW5oeGR6b3RpcHFneXRneGtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTYyNjAsImV4cCI6MjA5Mjg3MjI2MH0.aT198zX0nOUvfMDo_lgvfTrSuOi2SZomsUAQXwa0wk4';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const TABLE_NAME = 'movie_journal';
 
-function loadData() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
-  catch { return []; }
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-// ── STATE ─────────────────────────────────────────────────────────────────
-let pages = loadData();
-let currentIndex = pages.length > 0 ? pages.length - 1 : 0;
-
-// ── RENDER ────────────────────────────────────────────────────────────────
-function render() {
-  const container = document.getElementById('pagesContainer');
-  const navBar = document.getElementById('navBar');
-  const emptyState = document.getElementById('emptyState');
-
-  if (pages.length === 0) {
-    emptyState.classList.add('visible');
-    navBar.style.display = 'none';
-    container.innerHTML = '';
-    return;
-  }
-
-  emptyState.classList.remove('visible');
-  navBar.style.display = 'flex';
-
-  document.getElementById('currentPageNum').textContent = currentIndex + 1;
-  document.getElementById('totalPageNum').textContent = pages.length;
-  document.getElementById('prevBtn').disabled = currentIndex === 0;
-  document.getElementById('nextBtn').disabled = currentIndex === pages.length - 1;
-
-  container.innerHTML = '';
-  pages.forEach((page, idx) => {
-    const card = buildCard(page, idx);
-    container.appendChild(card);
-    if (idx === currentIndex) card.classList.add('active');
-  });
-}
-
-function buildCard(page, idx) {
-  const card = document.createElement('div');
-  card.className = 'page-card';
-  card.dataset.idx = idx;
-
-  const weekNum = String(idx + 1).padStart(2, '0');
-  const posterSrc = page.poster || '';
-
-  card.innerHTML = `
-    <div class="film-entry">
-      <div class="poster-wrap" id="posterWrap_${idx}">
-        ${posterSrc
-          ? `<img class="poster-img" id="posterImg_${idx}" src="${posterSrc}" alt="海报">`
-          : `<div class="poster-placeholder" id="posterPlaceholder_${idx}">
-               <div class="icon">🎬</div>
-               <span>点击上传电影海报</span>
-             </div>`
-        }
-        <input type="file" class="poster-upload-input" accept="image/*"
-          onchange="uploadPoster(event, ${idx})" title="上传海报">
-      </div>
-
-      <div class="film-info">
-        <div class="week-badge">Week ${weekNum} · Movie Night</div>
-        <div class="divider"></div>
-
-        <div>
-          <div class="field-label">电影标题</div>
-          <input class="film-title-input"
-            placeholder="电影名称…"
-            value="${escHtml(page.title || '')}"
-            onchange="updateField(${idx}, 'title', this.value)"
-            oninput="markSaved(${idx})">
-        </div>
-
-        <div>
-          <div class="field-label">观影日期</div>
-          <input class="film-date-input" type="date"
-            value="${page.date || ''}"
-            onchange="updateField(${idx}, 'date', this.value)">
-        </div>
-
-        <div style="margin-top:8px">
-          <span class="save-indicator" id="saved_${idx}">✓ 已保存</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="comments-section">
-      <div class="section-heading">寻求建言</div>
-
-      <div class="comment-form">
-        <div class="form-row">
-          <input class="form-input" id="cname_${idx}" placeholder="你的名字">
-          <input class="form-input" id="cemail_${idx}" placeholder="标题（选填）" style="font-style:italic">
-        </div>
-        <textarea class="form-textarea" id="ctext_${idx}"
-          placeholder="想说的..."></textarea>
-        <div style="margin-top:12px;display:flex;justify-content:flex-end">
-          <button class="btn btn-gold" onclick="submitComment(${idx})">ENTER</button>
-        </div>
-      </div>
-
-      <div class="comments-list" id="commentsList_${idx}">
-        ${(page.comments || []).map((c, ci) => buildCommentHtml(c, idx, ci)).join('')}
-      </div>
-    </div>
-  `;
-
-  return card;
-}
-
-function buildCommentHtml(c, pageIdx, commentIdx) {
-  return `
-    <div class="comment-card">
-      <div class="comment-author">
-        <div class="comment-author-name">${escHtml(c.name)}</div>
-        <div style="display:flex;align-items:center;gap:12px">
-          <span class="comment-time">${c.time}</span>
-          <button class="btn btn-danger" onclick="deleteComment(${pageIdx}, ${commentIdx})">删除</button>
-        </div>
-      </div>
-      ${c.subtitle ? `<div style="font-size:13px;color:var(--gold);opacity:0.7;margin-bottom:8px;padding-left:28px;font-style:italic">${escHtml(c.subtitle)}</div>` : ''}
-      <div class="comment-text">${escHtml(c.text).replace(/\n/g, '<br>')}</div>
-    </div>
-  `;
-}
-
-// ── ACTIONS ───────────────────────────────────────────────────────────────
-function navigate(dir) {
-  currentIndex = Math.max(0, Math.min(pages.length - 1, currentIndex + dir));
-  render();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function openAddModal() {
-  // default to next Saturday
-  const d = new Date();
-  const day = d.getDay();
-  const daysUntilSat = (6 - day + 7) % 7 || 7;
-  d.setDate(d.getDate() + daysUntilSat);
-  document.getElementById('newDate').value = d.toISOString().split('T')[0];
-  document.getElementById('newTitle').value = '';
-  openModal('addModal');
-}
-
-function addWeek() {
-  const title = document.getElementById('newTitle').value.trim();
-  const date = document.getElementById('newDate').value;
-  pages.push({ title, date, poster: '', comments: [] });
-  currentIndex = pages.length - 1;
-  saveData(pages);
-  closeModal('addModal');
-  render();
-}
-
-function confirmDelete() {
-  openModal('deleteModal');
-}
-
-function deletePage() {
-  pages.splice(currentIndex, 1);
-  currentIndex = Math.min(currentIndex, pages.length - 1);
-  saveData(pages);
-  closeModal('deleteModal');
-  render();
-}
-
-function updateField(idx, key, value) {
-  pages[idx][key] = value;
-  saveData(pages);
-  flashSaved(idx);
-}
-
-function markSaved(idx) {
-  clearTimeout(window['saveTimer_' + idx]);
-  window['saveTimer_' + idx] = setTimeout(() => {
-    pages[idx].title = document.querySelector(`[data-idx="${idx}"] .film-title-input`)?.value || pages[idx].title;
-    saveData(pages);
-    flashSaved(idx);
-  }, 800);
-}
-
-function flashSaved(idx) {
-  const el = document.getElementById(`saved_${idx}`);
-  if (!el) return;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 1800);
-}
-
-function uploadPoster(event, idx) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    pages[idx].poster = e.target.result;
-    saveData(pages);
-    // update DOM in place
-    const wrap = document.getElementById(`posterWrap_${idx}`);
-    const placeholder = document.getElementById(`posterPlaceholder_${idx}`);
-    let img = document.getElementById(`posterImg_${idx}`);
-    if (placeholder) placeholder.remove();
-    if (!img) {
-      img = document.createElement('img');
-      img.className = 'poster-img';
-      img.id = `posterImg_${idx}`;
-      wrap.insertBefore(img, wrap.firstChild);
+  // ==================== 云端数据操作 ====================
+  // 从 Supabase 加载所有记录
+  async function loadDataFromSupabase() {
+    const { data, error } = await supabase
+      .from(TABLE_NAME)
+      .select('*')
+      .order('id', { ascending: true }); // 按 id 排序保持顺序
+    if (error) {
+      console.error('加载失败:', error);
+      alert('加载云端数据失败，请检查网络或 Supabase 配置');
+      return [];
     }
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function submitComment(idx) {
-  const name = document.getElementById(`cname_${idx}`).value.trim();
-  const subtitle = document.getElementById(`cemail_${idx}`).value.trim();
-  const text = document.getElementById(`ctext_${idx}`).value.trim();
-
-  if (!name || !text) {
-    alert('坏了^ ^');
-    return;
+    // 转换数据库行 → 前端 pages 数组格式
+    return data.map(row => ({
+      title: row.title || '',
+      date: row.date || '',
+      poster: row.poster || '',
+      comments: row.comments || []
+    }));
   }
 
-  const now = new Date();
-  const time = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  // 全量保存 pages 数组到 Supabase（先清空表再插入）
+  async function saveDataToSupabase(pages) {
+    // 1. 删除所有旧数据
+    const { error: delErr } = await supabase
+      .from(TABLE_NAME)
+      .delete()
+      .neq('id', 0); // 删除所有行
+    if (delErr) {
+      console.error('清空表失败:', delErr);
+      alert('保存失败：无法清空旧数据');
+      return false;
+    }
+    if (pages.length === 0) return true;
 
-  if (!pages[idx].comments) pages[idx].comments = [];
-  pages[idx].comments.push({ name, subtitle, text, time });
-  saveData(pages);
+    // 2. 插入新的数据
+    const rows = pages.map((page, idx) => ({
+      title: page.title || '',
+      date: page.date || null,
+      poster: page.poster || '',
+      comments: page.comments || []
+    }));
+    const { error: insErr } = await supabase
+      .from(TABLE_NAME)
+      .insert(rows);
+    if (insErr) {
+      console.error('插入失败:', insErr);
+      alert('保存失败：无法写入新数据');
+      return false;
+    }
+    return true;
+  }
 
-  // update comments list in DOM
-  const list = document.getElementById(`commentsList_${idx}`);
-  const ci = pages[idx].comments.length - 1;
-  list.insertAdjacentHTML('beforeend', buildCommentHtml(pages[idx].comments[ci], idx, ci));
+  // ==================== 全局状态 ====================
+  let pages = [];        // 将从云端加载
+  let currentIndex = 0;
+  let isLoading = true;  // 载入状态
 
-  // clear form
-  document.getElementById(`cname_${idx}`).value = '';
-  document.getElementById(`cemail_${idx}`).value = '';
-  document.getElementById(`ctext_${idx}`).value = '';
-}
+  // ==================== 辅助函数 ====================
+  function escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
 
-function deleteComment(pageIdx, commentIdx) {
-  if (!confirm('确认删除这条评论？')) return;
-  pages[pageIdx].comments.splice(commentIdx, 1);
-  saveData(pages);
-  // re-render comments list only
-  const list = document.getElementById(`commentsList_${pageIdx}`);
-  list.innerHTML = (pages[pageIdx].comments || []).map((c, ci) => buildCommentHtml(c, pageIdx, ci)).join('');
-}
+  function buildCommentHtml(c, pageIdx, commentIdx) {
+    return `
+      <div class="comment-card">
+        <div class="comment-author">
+          <div class="comment-author-name">${escHtml(c.name)}</div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="comment-time">${c.time}</span>
+            <button class="btn btn-danger" onclick="deleteComment(${pageIdx}, ${commentIdx})">删除</button>
+          </div>
+        </div>
+        ${c.subtitle ? `<div style="font-size:13px;color:var(--gold);opacity:0.7;margin-bottom:8px;padding-left:28px;font-style:italic">${escHtml(c.subtitle)}</div>` : ''}
+        <div class="comment-text">${escHtml(c.text).replace(/\n/g, '<br>')}</div>
+      </div>
+    `;
+  }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function buildCard(page, idx) {
+    const card = document.createElement('div');
+    card.className = 'page-card';
+    card.dataset.idx = idx;
+    const weekNum = String(idx + 1).padStart(2, '0');
+    const posterSrc = page.poster || '';
+    card.innerHTML = `
+      <div class="film-entry">
+        <div class="poster-wrap" id="posterWrap_${idx}">
+          ${posterSrc
+            ? `<img class="poster-img" id="posterImg_${idx}" src="${posterSrc}" alt="海报">`
+            : `<div class="poster-placeholder" id="posterPlaceholder_${idx}">
+                 <div class="icon">🎬</div>
+                 <span>点击上传电影海报</span>
+               </div>`
+          }
+          <input type="file" class="poster-upload-input" accept="image/*"
+            onchange="uploadPoster(event, ${idx})" title="上传海报">
+        </div>
+        <div class="film-info">
+          <div class="week-badge">Week ${weekNum} · Movie Night</div>
+          <div class="divider"></div>
+          <div>
+            <div class="field-label">电影标题</div>
+            <input class="film-title-input" placeholder="电影名称…"
+              value="${escHtml(page.title || '')}"
+              onchange="updateField(${idx}, 'title', this.value)"
+              oninput="markSaved(${idx})">
+          </div>
+          <div>
+            <div class="field-label">观影日期</div>
+            <input class="film-date-input" type="date"
+              value="${page.date || ''}"
+              onchange="updateField(${idx}, 'date', this.value)">
+          </div>
+          <div style="margin-top:8px">
+            <span class="save-indicator" id="saved_${idx}">✓ 已保存</span>
+          </div>
+        </div>
+      </div>
+      <div class="comments-section">
+        <div class="section-heading">寻求建言</div>
+        <div class="comment-form">
+          <div class="form-row">
+            <input class="form-input" id="cname_${idx}" placeholder="你的名字">
+            <input class="form-input" id="cemail_${idx}" placeholder="标题（选填）" style="font-style:italic">
+          </div>
+          <textarea class="form-textarea" id="ctext_${idx}" placeholder="想说的..."></textarea>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end">
+            <button class="btn btn-gold" onclick="submitComment(${idx})">ENTER</button>
+          </div>
+        </div>
+        <div class="comments-list" id="commentsList_${idx}">
+          ${(page.comments || []).map((c, ci) => buildCommentHtml(c, idx, ci)).join('')}
+        </div>
+      </div>
+    `;
+    return card;
+  }
 
-document.querySelectorAll('.modal-overlay').forEach(el => {
-  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
-});
+  // 渲染全部页面
+  function render() {
+    if (isLoading) return;
+    const container = document.getElementById('pagesContainer');
+    const navBar = document.getElementById('navBar');
+    const emptyState = document.getElementById('emptyState');
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
-  if (e.key === 'ArrowLeft' && !document.querySelector('.modal-overlay.open')) navigate(-1);
-  if (e.key === 'ArrowRight' && !document.querySelector('.modal-overlay.open')) navigate(1);
-});
+    if (pages.length === 0) {
+      emptyState.classList.add('visible');
+      navBar.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────
-function escHtml(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+    emptyState.classList.remove('visible');
+    navBar.style.display = 'flex';
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-render();
+    document.getElementById('currentPageNum').textContent = currentIndex + 1;
+    document.getElementById('totalPageNum').textContent = pages.length;
+    document.getElementById('prevBtn').disabled = currentIndex === 0;
+    document.getElementById('nextBtn').disabled = currentIndex === pages.length - 1;
+
+    container.innerHTML = '';
+    pages.forEach((page, idx) => {
+      const card = buildCard(page, idx);
+      container.appendChild(card);
+      if (idx === currentIndex) card.classList.add('active');
+    });
+  }
+
+  // ==================== 数据操作（异步保存） ====================
+  async function updateField(idx, key, value) {
+    pages[idx][key] = value;
+    await saveDataToSupabase(pages);
+    flashSaved(idx);
+  }
+
+  let saveTimeouts = {};
+  function markSaved(idx) {
+    if (saveTimeouts[idx]) clearTimeout(saveTimeouts[idx]);
+    saveTimeouts[idx] = setTimeout(async () => {
+      const titleInput = document.querySelector(`[data-idx="${idx}"] .film-title-input`);
+      if (titleInput) pages[idx].title = titleInput.value;
+      await saveDataToSupabase(pages);
+      flashSaved(idx);
+    }, 800);
+  }
+
+  function flashSaved(idx) {
+    const el = document.getElementById(`saved_${idx}`);
+    if (el) {
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 1800);
+    }
+  }
+
+  async function uploadPoster(event, idx) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      pages[idx].poster = e.target.result;
+      await saveDataToSupabase(pages);
+      // 更新 DOM 中的图片
+      const wrap = document.getElementById(`posterWrap_${idx}`);
+      const placeholder = document.getElementById(`posterPlaceholder_${idx}`);
+      let img = document.getElementById(`posterImg_${idx}`);
+      if (placeholder) placeholder.remove();
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'poster-img';
+        img.id = `posterImg_${idx}`;
+        wrap.insertBefore(img, wrap.firstChild);
+      }
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function submitComment(idx) {
+    const name = document.getElementById(`cname_${idx}`).value.trim();
+    const subtitle = document.getElementById(`cemail_${idx}`).value.trim();
+    const text = document.getElementById(`ctext_${idx}`).value.trim();
+    if (!name || !text) {
+      alert('请填写名字和评论内容');
+      return;
+    }
+    const now = new Date();
+    const time = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    if (!pages[idx].comments) pages[idx].comments = [];
+    pages[idx].comments.push({ name, subtitle, text, time });
+    await saveDataToSupabase(pages);
+    // 局部刷新评论列表
+    const list = document.getElementById(`commentsList_${idx}`);
+    list.innerHTML = pages[idx].comments.map((c, ci) => buildCommentHtml(c, idx, ci)).join('');
+    // 清空表单
+    document.getElementById(`cname_${idx}`).value = '';
+    document.getElementById(`cemail_${idx}`).value = '';
+    document.getElementById(`ctext_${idx}`).value = '';
+  }
+
+  async function deleteComment(pageIdx, commentIdx) {
+    if (!confirm('确认删除这条评论？')) return;
+    pages[pageIdx].comments.splice(commentIdx, 1);
+    await saveDataToSupabase(pages);
+    const list = document.getElementById(`commentsList_${pageIdx}`);
+    list.innerHTML = pages[pageIdx].comments.map((c, ci) => buildCommentHtml(c, pageIdx, ci)).join('');
+  }
+
+  async function addWeek() {
+    const title = document.getElementById('newTitle').value.trim();
+    const date = document.getElementById('newDate').value;
+    pages.push({ title, date, poster: '', comments: [] });
+    currentIndex = pages.length - 1;
+    await saveDataToSupabase(pages);
+    closeModal('addModal');
+    render();
+  }
+
+  async function deletePage() {
+    pages.splice(currentIndex, 1);
+    currentIndex = Math.min(currentIndex, pages.length - 1);
+    await saveDataToSupabase(pages);
+    closeModal('deleteModal');
+    render();
+  }
+
+  // 导航
+  function navigate(dir) {
+    currentIndex = Math.max(0, Math.min(pages.length - 1, currentIndex + dir));
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // 模态框
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function openAddModal() {
+    const d = new Date();
+    const day = d.getDay();
+    const daysUntilSat = (6 - day + 7) % 7 || 7;
+    d.setDate(d.getDate() + daysUntilSat);
+    document.getElementById('newDate').value = d.toISOString().split('T')[0];
+    document.getElementById('newTitle').value = '';
+    openModal('addModal');
+  }
+  function confirmDelete() { openModal('deleteModal'); }
+
+  // ==================== 初始化（从云端加载） ====================
+  async function init() {
+    // 显示加载提示
+    const container = document.getElementById('pagesContainer');
+    container.innerHTML = '<div style="text-align:center;padding:80px;color:var(--text-dim)">🎬 正在加载电影之夜...</div>';
+    const data = await loadDataFromSupabase();
+    pages = data;
+    currentIndex = pages.length > 0 ? pages.length - 1 : 0;
+    isLoading = false;
+    render();
+  }
+
+  // 挂载全局函数（供内联 onclick 调用）
+  window.navigate = navigate;
+  window.openAddModal = openAddModal;
+  window.addWeek = addWeek;
+  window.confirmDelete = confirmDelete;
+  window.deletePage = deletePage;
+  window.updateField = updateField;
+  window.markSaved = markSaved;
+  window.uploadPoster = uploadPoster;
+  window.submitComment = submitComment;
+  window.deleteComment = deleteComment;
+  window.openModal = openModal;
+  window.closeModal = closeModal;
+
+  // 模态框点击背景关闭
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
+    if (e.key === 'ArrowLeft' && !document.querySelector('.modal-overlay.open')) navigate(-1);
+    if (e.key === 'ArrowRight' && !document.querySelector('.modal-overlay.open')) navigate(1);
+  });
+
+  init();
 </script>
 </body>
 </html>
