@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 电影之夜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@300;400;600&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07);
+    --gold: #c9a84c;
+    --gold-dim: rgba(201,168,76,0.15);
+    --gold-glow: rgba(201,168,76,0.4);
+    --text: #e8e0d0;
+    --text-dim: #8a8070;
+    --red: #8b2020;
+    --accent: #4a6fa5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* film grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 48px 24px 32px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80px;
+    height: 2px;
+    background: var(--gold);
+  }
+
+  .header-subtitle {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    color: var(--gold);
+    font-size: 14px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  header h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 400;
+    letter-spacing: 2px;
+    color: var(--text);
+    text-shadow: 0 0 40px rgba(201,168,76,0.2);
+  }
+
+  header h1 span {
+    color: var(--gold);
+    font-style: italic;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .stage {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+    position: relative;
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 100px 24px;
+    display: none;
+  }
+
+  .empty-state.visible { display: block; }
+
+  .empty-icon {
+    font-size: 64px;
+    margin-bottom: 24px;
+    opacity: 0.3;
+  }
+
+  .empty-state p {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 20px;
+  }
+
+  /* ── PAGE CARD ── */
+  .page-card {
+    display: none;
+    animation: fadeIn 0.5s ease;
+  }
+
+  .page-card.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── FILM ENTRY ── */
+  .film-entry {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 48px;
+    align-items: start;
+  }
+
+  @media (max-width: 640px) {
+    .film-entry { grid-template-columns: 1fr; }
+  }
+
+  .poster-wrap {
+    position: relative;
+    aspect-ratio: 2/3;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    cursor: pointer;
+    group: poster;
+    max-height: 480px;
+  }
+
+  .poster-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+  }
+
+  .poster-wrap:hover .poster-img { transform: scale(1.04); }
+
+  .poster-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 14px;
+    gap: 12px;
+    transition: background 0.3s;
+  }
+
+  .poster-placeholder:hover { background: var(--surface); }
+
+  .poster-placeholder .icon { font-size: 40px; opacity: 0.4; }
+
+  .poster-placeholder span {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--gold);
+    opacity: 0.6;
+  }
+
+  .poster-upload-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+  }
+
+  /* film sprocket decoration */
+  .poster-wrap::after {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0; left: 0;
+    width: 20px;
+    background: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 6px,
+      rgba(0,0,0,0.6) 6px,
+      rgba(0,0,0,0.6) 14px
+    );
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* ── FILM INFO ── */
+  .film-info {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 8px;
+  }
+
+  .week-badge {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .film-title-input,
+  .film-date-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Playfair Display', serif;
+    padding: 8px 0;
+    outline: none;
+    transition: border-color 0.3s;
+    width: 100%;
+  }
+
+  .film-title-input {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 400;
+  }
+
+  .film-title-input::placeholder { color: var(--text-dim); font-style: italic; }
+
+  .film-title-input:focus,
+  .film-date-input:focus {
+    border-bottom-color: var(--gold);
+  }
+
+  .film-date-input {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    color: var(--text-dim);
+    cursor: pointer;
+  }
+
+  .film-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(0.5) sepia(1) saturate(2) hue-rotate(10deg);
+    cursor: pointer;
+  }
+
+  .field-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: -8px;
+  }
+
+  .divider {
+    width: 40px;
+    height: 1px;
+    background: var(--gold);
+    margin: 8px 0;
+  }
+
+  .save-indicator {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--gold);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+
+  .save-indicator.show { opacity: 1; }
+
+  /* ── COMMENTS ── */
+  .comments-section {
+    border-top: 1px solid var(--border);
+    padding-top: 40px;
+  }
+
+  .section-heading {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--gold);
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-heading::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .comment-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px;
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .comment-form::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: var(--gold);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  @media (max-width: 500px) { .form-row { grid-template-columns: 1fr; } }
+
+  .form-input, .form-textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.3s;
+    width: 100%;
+  }
+
+  .form-input:focus, .form-textarea:focus {
+    border-color: var(--gold);
+  }
+
+  .form-input::placeholder, .form-textarea::placeholder {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.7;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 24px;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    letter-spacing: 1px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.25s;
+  }
+
+  .btn-gold {
+    background: var(--gold);
+    color: #0a0a0f;
+    font-weight: 600;
+  }
+
+  .btn-gold:hover {
+    background: #e0c070;
+    box-shadow: 0 0 20px var(--gold-glow);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+  }
+
+  .btn-ghost:hover {
+    background: var(--gold-dim);
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: #c04040;
+    border: 1px solid rgba(192,64,64,0.3);
+    font-size: 12px;
+    padding: 6px 14px;
+  }
+
+  .btn-danger:hover {
+    background: rgba(192,64,64,0.1);
+    border-color: #c04040;
+  }
+
+  /* ── COMMENT CARDS ── */
+  .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .comment-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+    position: relative;
+    animation: slideIn 0.35s ease;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .comment-card::before {
+    content: '"';
+    position: absolute;
+    top: 8px; right: 16px;
+    font-family: 'Playfair Display', serif;
+    font-size: 60px;
+    color: var(--gold);
+    opacity: 0.08;
+    line-height: 1;
+  }
+
+  .comment-author {
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .comment-author-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .comment-author-name::before {
+    content: '';
+    width: 20px; height: 1px;
+    background: var(--gold);
+  }
+
+  .comment-time {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  .comment-text {
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+  }
+
+  /* ── NAVIGATION ── */
+  .nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    gap: 16px;
+  }
+
+  .nav-arrows {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .nav-btn {
+    width: 40px; height: 40px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .nav-btn:hover:not(:disabled) {
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .page-indicator {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .page-indicator strong {
+    color: var(--gold);
+    font-style: normal;
+  }
+
+  .nav-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 32px;
+    border-top: 1px solid var(--border);
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 36px;
+    max-width: 480px;
+    width: 100%;
+    position: relative;
+    animation: modalIn 0.3s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(to right, var(--gold), transparent);
+  }
+
+  .modal h2 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 400;
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .modal p {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none; border: none;
+    color: var(--text-dim);
+    font-size: 20px;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .modal-close:hover { color: var(--text); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-subtitle">Movie Night</div>
+  <h1>电影之<span>夜</span></h1>
+</header>
+
+<div class="stage">
+  <!-- Navigation -->
+  <div class="nav-bar" id="navBar" style="display:none">
+    <div class="nav-arrows">
+      <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" title="上一周">&#8592;</button>
+      <span class="page-indicator">第 <strong id="currentPageNum">1</strong> 周，共 <strong id="totalPageNum">1</strong> 周</span>
+      <button class="nav-btn" id="nextBtn" onclick="navigate(1)" title="下一周">&#8594;</button>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-danger" onclick="confirmDelete()">删除本页</button>
+      <button class="btn btn-ghost" onclick="openAddModal()">＋ 新增一周</button>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">🎞️</div>
+    <p>还没有观影记录</p>
+    <br>
+    <button class="btn btn-gold" onclick="openAddModal()" style="margin: 0 auto; display:flex">＋ 记录第一部电影</button>
+  </div>
+
+  <!-- Pages container -->
+  <div id="pagesContainer"></div>
+</div>
+
+<footer>
+  TILL ALL ARE ONE
+</footer>
+
+<!-- Add Week Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    <h2>新增观影记录</h2>
+    <p>为本周六的观影活动创建一页新日记</p>
+    <div style="margin-bottom:16px">
+      <div class="field-label" style="margin-bottom:8px">电影标题</div>
+      <input class="form-input" id="newTitle" placeholder="输入电影名称…" style="width:100%">
+    </div>
+    <div>
+      <div class="field-label" style="margin-bottom:8px">观影日期</div>
+      <input class="form-input" id="newDate" type="date" style="width:100%;background:var(--surface2);color:var(--text)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addModal')">取消</button>
+      <button class="btn btn-gold" onclick="addWeek()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
+    <h2>确认删除</h2>
+    <p>将删除本周的所有观影记录和评论，此操作不可恢复。</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">取消</button>
+      <button class="btn" style="background:#8b2020;color:#fff" onclick="deletePage()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'movie_diary_v2';
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let pages = loadData();
+let currentIndex = pages.length > 0 ? pages.length - 1 : 0;
+
+// ── RENDER ────────────────────────────────────────────────────────────────
+function render() {
+  const container = document.getElementById('pagesContainer');
+  const navBar = document.getElementById('navBar');
+  const emptyState = document.getElementById('emptyState');
+
+  if (pages.length === 0) {
+    emptyState.classList.add('visible');
+    navBar.style.display = 'none';
+    container.innerHTML = '';
+    return;
+  }
+
+  emptyState.classList.remove('visible');
+  navBar.style.display = 'flex';
+
+  document.getElementById('currentPageNum').textContent = currentIndex + 1;
+  document.getElementById('totalPageNum').textContent = pages.length;
+  document.getElementById('prevBtn').disabled = currentIndex === 0;
+  document.getElementById('nextBtn').disabled = currentIndex === pages.length - 1;
+
+  container.innerHTML = '';
+  pages.forEach((page, idx) => {
+    const card = buildCard(page, idx);
+    container.appendChild(card);
+    if (idx === currentIndex) card.classList.add('active');
+  });
+}
+
+function buildCard(page, idx) {
+  const card = document.createElement('div');
+  card.className = 'page-card';
+  card.dataset.idx = idx;
+
+  const weekNum = String(idx + 1).padStart(2, '0');
+  const posterSrc = page.poster || '';
+
+  card.innerHTML = `
+    <div class="film-entry">
+      <div class="poster-wrap" id="posterWrap_${idx}">
+        ${posterSrc
+          ? `<img class="poster-img" id="posterImg_${idx}" src="${posterSrc}" alt="海报">`
+          : `<div class="poster-placeholder" id="posterPlaceholder_${idx}">
+               <div class="icon">🎬</div>
+               <span>点击上传电影海报</span>
+             </div>`
+        }
+        <input type="file" class="poster-upload-input" accept="image/*"
+          onchange="uploadPoster(event, ${idx})" title="上传海报">
+      </div>
+
+      <div class="film-info">
+        <div class="week-badge">Week ${weekNum} · Movie Night</div>
+        <div class="divider"></div>
+
+        <div>
+          <div class="field-label">电影标题</div>
+          <input class="film-title-input"
+            placeholder="电影名称…"
+            value="${escHtml(page.title || '')}"
+            onchange="updateField(${idx}, 'title', this.value)"
+            oninput="markSaved(${idx})">
+        </div>
+
+        <div>
+          <div class="field-label">观影日期</div>
+          <input class="film-date-input" type="date"
+            value="${page.date || ''}"
+            onchange="updateField(${idx}, 'date', this.value)">
+        </div>
+
+        <div style="margin-top:8px">
+          <span class="save-indicator" id="saved_${idx}">✓ 已保存</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comments-section">
+      <div class="section-heading">寻求建言</div>
+
+      <div class="comment-form">
+        <div class="form-row">
+          <input class="form-input" id="cname_${idx}" placeholder="你的名字">
+          <input class="form-input" id="cemail_${idx}" placeholder="标题（选填）" style="font-style:italic">
+        </div>
+        <textarea class="form-textarea" id="ctext_${idx}"
+          placeholder="想说的..."></textarea>
+        <div style="margin-top:12px;display:flex;justify-content:flex-end">
+          <button class="btn btn-gold" onclick="submitComment(${idx})">ENTER</button>
+        </div>
+      </div>
+
+      <div class="comments-list" id="commentsList_${idx}">
+        ${(page.comments || []).map((c, ci) => buildCommentHtml(c, idx, ci)).join('')}
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+function buildCommentHtml(c, pageIdx, commentIdx) {
+  return `
+    <div class="comment-card">
+      <div class="comment-author">
+        <div class="comment-author-name">${escHtml(c.name)}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="comment-time">${c.time}</span>
+          <button class="btn btn-danger" onclick="deleteComment(${pageIdx}, ${commentIdx})">删除</button>
+        </div>
+      </div>
+      ${c.subtitle ? `<div style="font-size:13px;color:var(--gold);opacity:0.7;margin-bottom:8px;padding-left:28px;font-style:italic">${escHtml(c.subtitle)}</div>` : ''}
+      <div class="comment-text">${escHtml(c.text).replace(/\n/g, '<br>')}</div>
+    </div>
+  `;
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────
+function navigate(dir) {
+  currentIndex = Math.max(0, Math.min(pages.length - 1, currentIndex + dir));
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function openAddModal() {
+  // default to next Saturday
+  const d = new Date();
+  const day = d.getDay();
+  const daysUntilSat = (6 - day + 7) % 7 || 7;
+  d.setDate(d.getDate() + daysUntilSat);
+  document.getElementById('newDate').value = d.toISOString().split('T')[0];
+  document.getElementById('newTitle').value = '';
+  openModal('addModal');
+}
+
+function addWeek() {
+  const title = document.getElementById('newTitle').value.trim();
+  const date = document.getElementById('newDate').value;
+  pages.push({ title, date, poster: '', comments: [] });
+  currentIndex = pages.length - 1;
+  saveData(pages);
+  closeModal('addModal');
+  render();
+}
+
+function confirmDelete() {
+  openModal('deleteModal');
+}
+
+function deletePage() {
+  pages.splice(currentIndex, 1);
+  currentIndex = Math.min(currentIndex, pages.length - 1);
+  saveData(pages);
+  closeModal('deleteModal');
+  render();
+}
+
+function updateField(idx, key, value) {
+  pages[idx][key] = value;
+  saveData(pages);
+  flashSaved(idx);
+}
+
+function markSaved(idx) {
+  clearTimeout(window['saveTimer_' + idx]);
+  window['saveTimer_' + idx] = setTimeout(() => {
+    pages[idx].title = document.querySelector(`[data-idx="${idx}"] .film-title-input`)?.value || pages[idx].title;
+    saveData(pages);
+    flashSaved(idx);
+  }, 800);
+}
+
+function flashSaved(idx) {
+  const el = document.getElementById(`saved_${idx}`);
+  if (!el) return;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+function uploadPoster(event, idx) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    pages[idx].poster = e.target.result;
+    saveData(pages);
+    // update DOM in place
+    const wrap = document.getElementById(`posterWrap_${idx}`);
+    const placeholder = document.getElementById(`posterPlaceholder_${idx}`);
+    let img = document.getElementById(`posterImg_${idx}`);
+    if (placeholder) placeholder.remove();
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'poster-img';
+      img.id = `posterImg_${idx}`;
+      wrap.insertBefore(img, wrap.firstChild);
+    }
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitComment(idx) {
+  const name = document.getElementById(`cname_${idx}`).value.trim();
+  const subtitle = document.getElementById(`cemail_${idx}`).value.trim();
+  const text = document.getElementById(`ctext_${idx}`).value.trim();
+
+  if (!name || !text) {
+    alert('坏了^ ^');
+    return;
+  }
+
+  const now = new Date();
+  const time = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  if (!pages[idx].comments) pages[idx].comments = [];
+  pages[idx].comments.push({ name, subtitle, text, time });
+  saveData(pages);
+
+  // update comments list in DOM
+  const list = document.getElementById(`commentsList_${idx}`);
+  const ci = pages[idx].comments.length - 1;
+  list.insertAdjacentHTML('beforeend', buildCommentHtml(pages[idx].comments[ci], idx, ci));
+
+  // clear form
+  document.getElementById(`cname_${idx}`).value = '';
+  document.getElementById(`cemail_${idx}`).value = '';
+  document.getElementById(`ctext_${idx}`).value = '';
+}
+
+function deleteComment(pageIdx, commentIdx) {
+  if (!confirm('确认删除这条评论？')) return;
+  pages[pageIdx].comments.splice(commentIdx, 1);
+  saveData(pages);
+  // re-render comments list only
+  const list = document.getElementById(`commentsList_${pageIdx}`);
+  list.innerHTML = (pages[pageIdx].comments || []).map((c, ci) => buildCommentHtml(c, pageIdx, ci)).join('');
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
+  if (e.key === 'ArrowLeft' && !document.querySelector('.modal-overlay.open')) navigate(-1);
+  if (e.key === 'ArrowRight' && !document.querySelector('.modal-overlay.open')) navigate(1);
+});
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
