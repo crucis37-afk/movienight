@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎬 电影之夜 </title>
+<title>🎬 电影之夜</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Noto+Serif+SC:wght@300;400;600&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
+<!-- Supabase JS Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
@@ -32,7 +33,6 @@
     overflow-x: hidden;
   }
 
-  /* film grain overlay */
   body::before {
     content: '';
     position: fixed;
@@ -81,10 +81,58 @@
     text-shadow: 0 0 40px rgba(201,168,76,0.2);
   }
 
-  header h1 span {
-    color: var(--gold);
-    font-style: italic;
+  header h1 span { color: var(--gold); font-style: italic; }
+
+  /* ── LOADING OVERLAY ── */
+  #loadingOverlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 500;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    transition: opacity 0.5s;
   }
+
+  #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
+
+  .loader-film { font-size: 48px; animation: spin 2s linear infinite; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loader-text {
+    font-family: 'Crimson Text', serif;
+    font-style: italic;
+    color: var(--gold);
+    font-size: 16px;
+    letter-spacing: 3px;
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    color: var(--text);
+    font-family: 'Crimson Text', serif;
+    font-size: 14px;
+    padding: 12px 24px;
+    z-index: 2000;
+    opacity: 0;
+    transition: all 0.3s;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.error { border-left-color: #c04040; }
 
   /* ── MAIN LAYOUT ── */
   .stage {
@@ -95,20 +143,9 @@
   }
 
   /* ── EMPTY STATE ── */
-  .empty-state {
-    text-align: center;
-    padding: 100px 24px;
-    display: none;
-  }
-
+  .empty-state { text-align: center; padding: 100px 24px; display: none; }
   .empty-state.visible { display: block; }
-
-  .empty-icon {
-    font-size: 64px;
-    margin-bottom: 24px;
-    opacity: 0.3;
-  }
-
+  .empty-icon { font-size: 64px; margin-bottom: 24px; opacity: 0.3; }
   .empty-state p {
     font-family: 'Crimson Text', serif;
     font-style: italic;
@@ -117,16 +154,12 @@
   }
 
   /* ── PAGE CARD ── */
-  .page-card {
-    display: none;
-    animation: fadeIn 0.5s ease;
-  }
-
+  .page-card { display: none; animation: fadeIn 0.5s ease; }
   .page-card.active { display: block; }
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* ── FILM ENTRY ── */
@@ -138,9 +171,7 @@
     align-items: start;
   }
 
-  @media (max-width: 640px) {
-    .film-entry { grid-template-columns: 1fr; }
-  }
+  @media (max-width: 640px) { .film-entry { grid-template-columns: 1fr; } }
 
   .poster-wrap {
     position: relative;
@@ -148,8 +179,6 @@
     background: var(--surface2);
     border: 1px solid var(--border);
     overflow: hidden;
-    cursor: pointer;
-    group: poster;
     max-height: 480px;
   }
 
@@ -181,27 +210,15 @@
     color: var(--text-dim);
     font-size: 14px;
     gap: 12px;
-    transition: background 0.3s;
   }
 
-  .poster-placeholder:hover { background: var(--surface); }
-
   .poster-placeholder .icon { font-size: 40px; opacity: 0.4; }
-
   .poster-placeholder span {
     font-family: 'Crimson Text', serif;
     font-style: italic;
     font-size: 13px;
     color: var(--gold);
     opacity: 0.6;
-  }
-
-  .poster-upload-input {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 2;
   }
 
   /* film sprocket decoration */
@@ -212,22 +229,54 @@
     width: 20px;
     background: repeating-linear-gradient(
       to bottom,
-      transparent 0px,
-      transparent 6px,
-      rgba(0,0,0,0.6) 6px,
-      rgba(0,0,0,0.6) 14px
+      transparent 0px, transparent 6px,
+      rgba(0,0,0,0.6) 6px, rgba(0,0,0,0.6) 14px
     );
     z-index: 3;
     pointer-events: none;
   }
 
-  /* ── FILM INFO ── */
-  .film-info {
+  /* ── POSTER URL INPUT (slides up on hover) ── */
+  .poster-url-area {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 4;
+    background: rgba(10,10,15,0.92);
+    padding: 10px 12px;
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding-top: 8px;
+    gap: 6px;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
   }
+
+  .poster-wrap:hover .poster-url-area { transform: translateY(0); }
+
+  .poster-url-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Noto Serif SC', serif;
+    font-size: 11px;
+    padding: 6px 10px;
+    outline: none;
+  }
+
+  .poster-url-input:focus { border-color: var(--gold); }
+
+  .poster-url-btn {
+    background: var(--gold);
+    color: #0a0a0f;
+    border: none;
+    font-size: 11px;
+    font-family: 'Noto Serif SC', serif;
+    padding: 6px 10px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  /* ── FILM INFO ── */
+  .film-info { display: flex; flex-direction: column; gap: 16px; padding-top: 8px; }
 
   .week-badge {
     font-family: 'Crimson Text', serif;
@@ -238,8 +287,7 @@
     text-transform: uppercase;
   }
 
-  .film-title-input,
-  .film-date-input {
+  .film-title-input, .film-date-input {
     background: transparent;
     border: none;
     border-bottom: 1px solid var(--border);
@@ -251,17 +299,9 @@
     width: 100%;
   }
 
-  .film-title-input {
-    font-size: clamp(1.4rem, 3vw, 2rem);
-    font-weight: 400;
-  }
-
+  .film-title-input { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 400; }
   .film-title-input::placeholder { color: var(--text-dim); font-style: italic; }
-
-  .film-title-input:focus,
-  .film-date-input:focus {
-    border-bottom-color: var(--gold);
-  }
+  .film-title-input:focus, .film-date-input:focus { border-bottom-color: var(--gold); }
 
   .film-date-input {
     font-family: 'Noto Serif SC', serif;
@@ -283,12 +323,7 @@
     margin-bottom: -8px;
   }
 
-  .divider {
-    width: 40px;
-    height: 1px;
-    background: var(--gold);
-    margin: 8px 0;
-  }
+  .divider { width: 40px; height: 1px; background: var(--gold); margin: 8px 0; }
 
   .save-indicator {
     font-family: 'Crimson Text', serif;
@@ -302,10 +337,7 @@
   .save-indicator.show { opacity: 1; }
 
   /* ── COMMENTS ── */
-  .comments-section {
-    border-top: 1px solid var(--border);
-    padding-top: 40px;
-  }
+  .comments-section { border-top: 1px solid var(--border); padding-top: 40px; }
 
   .section-heading {
     font-family: 'Playfair Display', serif;
@@ -319,12 +351,7 @@
     gap: 12px;
   }
 
-  .section-heading::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+  .section-heading::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
   .comment-form {
     background: var(--surface);
@@ -363,20 +390,9 @@
     width: 100%;
   }
 
-  .form-input:focus, .form-textarea:focus {
-    border-color: var(--gold);
-  }
-
-  .form-input::placeholder, .form-textarea::placeholder {
-    color: var(--text-dim);
-    font-style: italic;
-  }
-
-  .form-textarea {
-    resize: vertical;
-    min-height: 80px;
-    line-height: 1.7;
-  }
+  .form-input:focus, .form-textarea:focus { border-color: var(--gold); }
+  .form-input::placeholder, .form-textarea::placeholder { color: var(--text-dim); font-style: italic; }
+  .form-textarea { resize: vertical; min-height: 80px; line-height: 1.7; }
 
   .btn {
     display: inline-flex;
@@ -391,26 +407,11 @@
     transition: all 0.25s;
   }
 
-  .btn-gold {
-    background: var(--gold);
-    color: #0a0a0f;
-    font-weight: 600;
-  }
-
-  .btn-gold:hover {
-    background: #e0c070;
-    box-shadow: 0 0 20px var(--gold-glow);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    color: var(--gold);
-    border: 1px solid var(--gold);
-  }
-
-  .btn-ghost:hover {
-    background: var(--gold-dim);
-  }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-gold { background: var(--gold); color: #0a0a0f; font-weight: 600; }
+  .btn-gold:hover:not(:disabled) { background: #e0c070; box-shadow: 0 0 20px var(--gold-glow); }
+  .btn-ghost { background: transparent; color: var(--gold); border: 1px solid var(--gold); }
+  .btn-ghost:hover:not(:disabled) { background: var(--gold-dim); }
 
   .btn-danger {
     background: transparent;
@@ -420,17 +421,10 @@
     padding: 6px 14px;
   }
 
-  .btn-danger:hover {
-    background: rgba(192,64,64,0.1);
-    border-color: #c04040;
-  }
+  .btn-danger:hover:not(:disabled) { background: rgba(192,64,64,0.1); border-color: #c04040; }
 
   /* ── COMMENT CARDS ── */
-  .comments-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
+  .comments-list { display: flex; flex-direction: column; gap: 16px; }
 
   .comment-card {
     background: var(--surface);
@@ -442,7 +436,7 @@
 
   @keyframes slideIn {
     from { opacity: 0; transform: translateX(-12px); }
-    to { opacity: 1; transform: translateX(0); }
+    to   { opacity: 1; transform: translateX(0); }
   }
 
   .comment-card::before {
@@ -466,29 +460,18 @@
     justify-content: space-between;
   }
 
-  .comment-author-name {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  .comment-author-name { display: flex; align-items: center; gap: 8px; }
+  .comment-author-name::before { content: ''; width: 20px; height: 1px; background: var(--gold); }
+  .comment-time { font-size: 11px; color: var(--text-dim); font-style: italic; }
+  .comment-text { font-size: 15px; line-height: 1.8; color: var(--text); font-family: 'Noto Serif SC', serif; }
 
-  .comment-author-name::before {
-    content: '';
-    width: 20px; height: 1px;
-    background: var(--gold);
-  }
-
-  .comment-time {
-    font-size: 11px;
-    color: var(--text-dim);
+  .comments-loading {
+    text-align: center;
+    padding: 24px;
+    font-family: 'Crimson Text', serif;
     font-style: italic;
-  }
-
-  .comment-text {
-    font-size: 15px;
-    line-height: 1.8;
-    color: var(--text);
-    font-family: 'Noto Serif SC', serif;
+    color: var(--text-dim);
+    font-size: 14px;
   }
 
   /* ── NAVIGATION ── */
@@ -500,11 +483,7 @@
     gap: 16px;
   }
 
-  .nav-arrows {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .nav-arrows { display: flex; align-items: center; gap: 12px; }
 
   .nav-btn {
     width: 40px; height: 40px;
@@ -517,11 +496,7 @@
     display: flex; align-items: center; justify-content: center;
   }
 
-  .nav-btn:hover:not(:disabled) {
-    border-color: var(--gold);
-    color: var(--gold);
-  }
-
+  .nav-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
   .nav-btn:disabled { opacity: 0.3; cursor: default; }
 
   .page-indicator {
@@ -532,17 +507,8 @@
     white-space: nowrap;
   }
 
-  .page-indicator strong {
-    color: var(--gold);
-    font-style: normal;
-  }
-
-  .nav-actions {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-  }
+  .page-indicator strong { color: var(--gold); font-style: normal; }
+  .nav-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 
   /* ── FOOTER ── */
   footer {
@@ -582,7 +548,7 @@
 
   @keyframes modalIn {
     from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
+    to   { opacity: 1; transform: scale(1); }
   }
 
   .modal::before {
@@ -593,26 +559,9 @@
     background: linear-gradient(to right, var(--gold), transparent);
   }
 
-  .modal h2 {
-    font-family: 'Playfair Display', serif;
-    font-weight: 400;
-    font-size: 22px;
-    margin-bottom: 8px;
-  }
-
-  .modal p {
-    color: var(--text-dim);
-    font-size: 14px;
-    margin-bottom: 24px;
-    line-height: 1.6;
-  }
-
-  .modal-actions {
-    display: flex;
-    gap: 12px;
-    justify-content: flex-end;
-    margin-top: 24px;
-  }
+  .modal h2 { font-family: 'Playfair Display', serif; font-weight: 400; font-size: 22px; margin-bottom: 8px; }
+  .modal p  { color: var(--text-dim); font-size: 14px; margin-bottom: 24px; line-height: 1.6; }
+  .modal-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
 
   .modal-close {
     position: absolute;
@@ -634,17 +583,28 @@
 </style>
 </head>
 <body>
+
+<!-- Loading overlay -->
+<div id="loadingOverlay">
+  <div class="loader-film">🎞️</div>
+  <div class="loader-text">正在放映中…</div>
+</div>
+
+<!-- Toast notification -->
+<div id="toast"></div>
+
 <header>
   <div class="header-subtitle">Movie Night</div>
   <h1>电影之<span>夜</span></h1>
 </header>
 
 <div class="stage">
+  <!-- Navigation -->
   <div class="nav-bar" id="navBar" style="display:none">
     <div class="nav-arrows">
-      <button class="nav-btn" id="prevBtn" onclick="navigate(-1)">&#8592;</button>
+      <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" title="上一周">&#8592;</button>
       <span class="page-indicator">第 <strong id="currentPageNum">1</strong> 周，共 <strong id="totalPageNum">1</strong> 周</span>
-      <button class="nav-btn" id="nextBtn" onclick="navigate(1)">&#8594;</button>
+      <button class="nav-btn" id="nextBtn" onclick="navigate(1)" title="下一周">&#8594;</button>
     </div>
     <div class="nav-actions">
       <button class="btn btn-danger" onclick="confirmDelete()">删除本页</button>
@@ -652,354 +612,540 @@
     </div>
   </div>
 
+  <!-- Empty state -->
   <div class="empty-state" id="emptyState">
     <div class="empty-icon">🎞️</div>
     <p>还没有观影记录</p>
     <br>
-    <button class="btn btn-gold" onclick="openAddModal()" style="margin:0 auto;display:flex">＋ 记录第一部电影</button>
+    <button class="btn btn-gold" onclick="openAddModal()" style="margin: 0 auto; display:flex">＋ 记录第一部电影</button>
   </div>
 
+  <!-- Pages container -->
   <div id="pagesContainer"></div>
 </div>
 
 <footer>TILL ALL ARE ONE</footer>
 
-<!-- 模态框（与原相同） -->
-<div class="modal-overlay" id="addModal">...</div>
-<div class="modal-overlay" id="deleteModal">...</div>
+<!-- Add Week Modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('addModal')">✕</button>
+    <h2>新增观影记录</h2>
+    <p>为本周六的观影活动创建一页新日记</p>
+    <div style="margin-bottom:16px">
+      <div class="field-label" style="margin-bottom:8px">电影标题</div>
+      <input class="form-input" id="newTitle" placeholder="输入电影名称…" style="width:100%">
+    </div>
+    <div style="margin-bottom:16px">
+      <div class="field-label" style="margin-bottom:8px">观影日期</div>
+      <input class="form-input" id="newDate" type="date" style="width:100%;background:var(--surface2);color:var(--text)">
+    </div>
+    <div>
+      <div class="field-label" style="margin-bottom:8px">海报链接（选填）</div>
+      <input class="form-input" id="newPoster" placeholder="豆瓣 / TMDB 海报图片 URL…" style="width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('addModal')">取消</button>
+      <button class="btn btn-gold" id="addWeekBtn" onclick="addWeek()">创建</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
+    <h2>确认删除</h2>
+    <p>将删除本周的所有观影记录和评论，此操作不可恢复。</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')">取消</button>
+      <button class="btn" style="background:#8b2020;color:#fff" id="deleteConfirmBtn" onclick="deletePage()">确认删除</button>
+    </div>
+  </div>
+</div>
 
 <script>
-  // ==================== Supabase 配置 ====================
-  // ⚠️ 请替换成你自己的 Supabase 项目 URL 和 anon 密钥
-  const SUPABASE_URL = 'https://aeenhxdzotipqgytgxke.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlZW5oeGR6b3RpcHFneXRneGtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTYyNjAsImV4cCI6MjA5Mjg3MjI2MH0.aT198zX0nOUvfMDo_lgvfTrSuOi2SZomsUAQXwa0wk4';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const TABLE_NAME = 'movie_journal';
+// ══════════════════════════════════════════════════════════════════════════════
+// SUPABASE CONFIG
+// ══════════════════════════════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://aeenhxdzotipqgytgxke.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFlZW5oeGR6b3RpcHFneXRneGtlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyOTYyNjAsImV4cCI6MjA5Mjg3MjI2MH0.aT198zX0nOUvfMDo_lgvfTrSuOi2SZomsUAQXwa0wk4';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-  // ==================== 云端数据操作 ====================
-  // 从 Supabase 加载所有记录
-  async function loadDataFromSupabase() {
-    const { data, error } = await supabase
-      .from(TABLE_NAME)
-      .select('*')
-      .order('id', { ascending: true }); // 按 id 排序保持顺序
-    if (error) {
-      console.error('加载失败:', error);
-      alert('加载云端数据失败，请检查网络或 Supabase 配置');
-      return [];
-    }
-    // 转换数据库行 → 前端 pages 数组格式
-    return data.map(row => ({
-      title: row.title || '',
-      date: row.date || '',
-      poster: row.poster || '',
-      comments: row.comments || []
-    }));
-  }
+// ══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════════════════
+let movies = [];       // [{id, title, date, poster_url, created_at}]
+let currentIndex = 0;
 
-  // 全量保存 pages 数组到 Supabase（先清空表再插入）
-  async function saveDataToSupabase(pages) {
-    // 1. 删除所有旧数据
-    const { error: delErr } = await supabase
-      .from(TABLE_NAME)
-      .delete()
-      .neq('id', 0); // 删除所有行
-    if (delErr) {
-      console.error('清空表失败:', delErr);
-      alert('保存失败：无法清空旧数据');
-      return false;
-    }
-    if (pages.length === 0) return true;
+// ══════════════════════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 2800);
+}
 
-    // 2. 插入新的数据
-    const rows = pages.map((page, idx) => ({
-      title: page.title || '',
-      date: page.date || null,
-      poster: page.poster || '',
-      comments: page.comments || []
-    }));
-    const { error: insErr } = await supabase
-      .from(TABLE_NAME)
-      .insert(rows);
-    if (insErr) {
-      console.error('插入失败:', insErr);
-      alert('保存失败：无法写入新数据');
-      return false;
-    }
-    return true;
-  }
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA — MOVIES
+// ══════════════════════════════════════════════════════════════════════════════
+async function fetchMovies() {
+  const { data, error } = await db
+    .from('movies')
+    .select('*')
+    .order('created_at', { ascending: true });
 
-  // ==================== 全局状态 ====================
-  let pages = [];        // 将从云端加载
-  let currentIndex = 0;
-  let isLoading = true;  // 载入状态
+  if (error) { showToast('读取电影列表失败：' + error.message, true); return; }
+  movies = data || [];
+}
 
-  // ==================== 辅助函数 ====================
-  function escHtml(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+async function insertMovie(title, date, posterUrl) {
+  const { data, error } = await db
+    .from('movies')
+    .insert([{ title, date, poster_url: posterUrl || null }])
+    .select()
+    .single();
 
-  function buildCommentHtml(c, pageIdx, commentIdx) {
-    return `
-      <div class="comment-card">
-        <div class="comment-author">
-          <div class="comment-author-name">${escHtml(c.name)}</div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <span class="comment-time">${c.time}</span>
-            <button class="btn btn-danger" onclick="deleteComment(${pageIdx}, ${commentIdx})">删除</button>
-          </div>
-        </div>
-        ${c.subtitle ? `<div style="font-size:13px;color:var(--gold);opacity:0.7;margin-bottom:8px;padding-left:28px;font-style:italic">${escHtml(c.subtitle)}</div>` : ''}
-        <div class="comment-text">${escHtml(c.text).replace(/\n/g, '<br>')}</div>
-      </div>
-    `;
-  }
+  if (error) { showToast('添加失败：' + error.message, true); return null; }
+  showToast('✓ 已添加「' + title + '」');
+  return data;
+}
 
-  function buildCard(page, idx) {
-    const card = document.createElement('div');
-    card.className = 'page-card';
-    card.dataset.idx = idx;
-    const weekNum = String(idx + 1).padStart(2, '0');
-    const posterSrc = page.poster || '';
-    card.innerHTML = `
-      <div class="film-entry">
-        <div class="poster-wrap" id="posterWrap_${idx}">
-          ${posterSrc
-            ? `<img class="poster-img" id="posterImg_${idx}" src="${posterSrc}" alt="海报">`
-            : `<div class="poster-placeholder" id="posterPlaceholder_${idx}">
-                 <div class="icon">🎬</div>
-                 <span>点击上传电影海报</span>
-               </div>`
-          }
-          <input type="file" class="poster-upload-input" accept="image/*"
-            onchange="uploadPoster(event, ${idx})" title="上传海报">
-        </div>
-        <div class="film-info">
-          <div class="week-badge">Week ${weekNum} · Movie Night</div>
-          <div class="divider"></div>
-          <div>
-            <div class="field-label">电影标题</div>
-            <input class="film-title-input" placeholder="电影名称…"
-              value="${escHtml(page.title || '')}"
-              onchange="updateField(${idx}, 'title', this.value)"
-              oninput="markSaved(${idx})">
-          </div>
-          <div>
-            <div class="field-label">观影日期</div>
-            <input class="film-date-input" type="date"
-              value="${page.date || ''}"
-              onchange="updateField(${idx}, 'date', this.value)">
-          </div>
-          <div style="margin-top:8px">
-            <span class="save-indicator" id="saved_${idx}">✓ 已保存</span>
-          </div>
-        </div>
-      </div>
-      <div class="comments-section">
-        <div class="section-heading">寻求建言</div>
-        <div class="comment-form">
-          <div class="form-row">
-            <input class="form-input" id="cname_${idx}" placeholder="你的名字">
-            <input class="form-input" id="cemail_${idx}" placeholder="标题（选填）" style="font-style:italic">
-          </div>
-          <textarea class="form-textarea" id="ctext_${idx}" placeholder="想说的..."></textarea>
-          <div style="margin-top:12px;display:flex;justify-content:flex-end">
-            <button class="btn btn-gold" onclick="submitComment(${idx})">ENTER</button>
-          </div>
-        </div>
-        <div class="comments-list" id="commentsList_${idx}">
-          ${(page.comments || []).map((c, ci) => buildCommentHtml(c, idx, ci)).join('')}
-        </div>
-      </div>
-    `;
-    return card;
-  }
+async function updateMovie(id, fields) {
+  const { error } = await db.from('movies').update(fields).eq('id', id);
+  if (error) { showToast('保存失败：' + error.message, true); return false; }
+  return true;
+}
 
-  // 渲染全部页面
-  function render() {
-    if (isLoading) return;
-    const container = document.getElementById('pagesContainer');
-    const navBar = document.getElementById('navBar');
-    const emptyState = document.getElementById('emptyState');
+async function deleteMovie(id) {
+  const { error } = await db.from('movies').delete().eq('id', id);
+  if (error) { showToast('删除失败：' + error.message, true); return false; }
+  return true;
+}
 
-    if (pages.length === 0) {
-      emptyState.classList.add('visible');
-      navBar.style.display = 'none';
-      container.innerHTML = '';
-      return;
-    }
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA — COMMENTS
+// ══════════════════════════════════════════════════════════════════════════════
+async function fetchComments(movieId) {
+  const { data, error } = await db
+    .from('comments')
+    .select('*')
+    .eq('movie_id', movieId)
+    .order('created_at', { ascending: true });
 
-    emptyState.classList.remove('visible');
-    navBar.style.display = 'flex';
+  if (error) { showToast('读取评论失败：' + error.message, true); return []; }
+  return data || [];
+}
 
-    document.getElementById('currentPageNum').textContent = currentIndex + 1;
-    document.getElementById('totalPageNum').textContent = pages.length;
-    document.getElementById('prevBtn').disabled = currentIndex === 0;
-    document.getElementById('nextBtn').disabled = currentIndex === pages.length - 1;
+async function insertComment(movieId, name, subtitle, text) {
+  const { data, error } = await db
+    .from('comments')
+    .insert([{ movie_id: movieId, name, subtitle: subtitle || null, text }])
+    .select()
+    .single();
 
+  if (error) { showToast('评论提交失败：' + error.message, true); return null; }
+  return data;
+}
+
+async function deleteComment(commentId) {
+  const { error } = await db.from('comments').delete().eq('id', commentId);
+  if (error) { showToast('删除评论失败：' + error.message, true); return false; }
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════════════════════
+function render() {
+  const container  = document.getElementById('pagesContainer');
+  const navBar     = document.getElementById('navBar');
+  const emptyState = document.getElementById('emptyState');
+
+  if (movies.length === 0) {
+    emptyState.classList.add('visible');
+    navBar.style.display = 'none';
     container.innerHTML = '';
-    pages.forEach((page, idx) => {
-      const card = buildCard(page, idx);
-      container.appendChild(card);
-      if (idx === currentIndex) card.classList.add('active');
-    });
+    return;
   }
 
-  // ==================== 数据操作（异步保存） ====================
-  async function updateField(idx, key, value) {
-    pages[idx][key] = value;
-    await saveDataToSupabase(pages);
-    flashSaved(idx);
-  }
+  emptyState.classList.remove('visible');
+  navBar.style.display = 'flex';
 
-  let saveTimeouts = {};
-  function markSaved(idx) {
-    if (saveTimeouts[idx]) clearTimeout(saveTimeouts[idx]);
-    saveTimeouts[idx] = setTimeout(async () => {
-      const titleInput = document.querySelector(`[data-idx="${idx}"] .film-title-input`);
-      if (titleInput) pages[idx].title = titleInput.value;
-      await saveDataToSupabase(pages);
-      flashSaved(idx);
-    }, 800);
-  }
+  document.getElementById('currentPageNum').textContent = currentIndex + 1;
+  document.getElementById('totalPageNum').textContent   = movies.length;
+  document.getElementById('prevBtn').disabled = currentIndex === 0;
+  document.getElementById('nextBtn').disabled = currentIndex === movies.length - 1;
 
-  function flashSaved(idx) {
-    const el = document.getElementById(`saved_${idx}`);
-    if (el) {
-      el.classList.add('show');
-      setTimeout(() => el.classList.remove('show'), 1800);
+  container.innerHTML = '';
+  movies.forEach((movie, idx) => {
+    const card = buildCard(movie, idx);
+    container.appendChild(card);
+    if (idx === currentIndex) {
+      card.classList.add('active');
+      loadCommentsIntoCard(movie.id, idx);
     }
-  }
+  });
+}
 
-  async function uploadPoster(event, idx) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      pages[idx].poster = e.target.result;
-      await saveDataToSupabase(pages);
-      // 更新 DOM 中的图片
-      const wrap = document.getElementById(`posterWrap_${idx}`);
-      const placeholder = document.getElementById(`posterPlaceholder_${idx}`);
-      let img = document.getElementById(`posterImg_${idx}`);
-      if (placeholder) placeholder.remove();
-      if (!img) {
-        img = document.createElement('img');
-        img.className = 'poster-img';
-        img.id = `posterImg_${idx}`;
-        wrap.insertBefore(img, wrap.firstChild);
-      }
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
+function buildCard(movie, idx) {
+  const card = document.createElement('div');
+  card.className = 'page-card';
+  card.dataset.idx = idx;
+  card.dataset.movieId = movie.id;
 
-  async function submitComment(idx) {
-    const name = document.getElementById(`cname_${idx}`).value.trim();
-    const subtitle = document.getElementById(`cemail_${idx}`).value.trim();
-    const text = document.getElementById(`ctext_${idx}`).value.trim();
-    if (!name || !text) {
-      alert('请填写名字和评论内容');
-      return;
-    }
-    const now = new Date();
-    const time = now.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    if (!pages[idx].comments) pages[idx].comments = [];
-    pages[idx].comments.push({ name, subtitle, text, time });
-    await saveDataToSupabase(pages);
-    // 局部刷新评论列表
-    const list = document.getElementById(`commentsList_${idx}`);
-    list.innerHTML = pages[idx].comments.map((c, ci) => buildCommentHtml(c, idx, ci)).join('');
-    // 清空表单
-    document.getElementById(`cname_${idx}`).value = '';
-    document.getElementById(`cemail_${idx}`).value = '';
-    document.getElementById(`ctext_${idx}`).value = '';
-  }
+  const weekNum   = String(idx + 1).padStart(2, '0');
+  const posterSrc = movie.poster_url || '';
 
-  async function deleteComment(pageIdx, commentIdx) {
-    if (!confirm('确认删除这条评论？')) return;
-    pages[pageIdx].comments.splice(commentIdx, 1);
-    await saveDataToSupabase(pages);
-    const list = document.getElementById(`commentsList_${pageIdx}`);
-    list.innerHTML = pages[pageIdx].comments.map((c, ci) => buildCommentHtml(c, pageIdx, ci)).join('');
-  }
+  card.innerHTML = `
+    <div class="film-entry">
+      <div class="poster-wrap" id="posterWrap_${idx}">
+        ${posterSrc
+          ? `<img class="poster-img" id="posterImg_${idx}" src="${escHtml(posterSrc)}" alt="海报" onerror="this.style.display='none'">`
+          : `<div class="poster-placeholder" id="posterPlaceholder_${idx}">
+               <div class="icon">🎬</div>
+               <span>悬停后可粘贴海报链接</span>
+             </div>`
+        }
+        <div class="poster-url-area">
+          <input class="poster-url-input" id="posterUrlInput_${idx}"
+            placeholder="粘贴豆瓣 / TMDB 海报 URL…"
+            value="${escHtml(posterSrc)}">
+          <button class="poster-url-btn" onclick="savePosterUrl(${idx})">确认</button>
+        </div>
+      </div>
 
-  async function addWeek() {
-    const title = document.getElementById('newTitle').value.trim();
-    const date = document.getElementById('newDate').value;
-    pages.push({ title, date, poster: '', comments: [] });
-    currentIndex = pages.length - 1;
-    await saveDataToSupabase(pages);
+      <div class="film-info">
+        <div class="week-badge">Week ${weekNum} · Movie Night</div>
+        <div class="divider"></div>
+
+        <div>
+          <div class="field-label">电影标题</div>
+          <input class="film-title-input" id="titleInput_${idx}"
+            placeholder="电影名称…"
+            value="${escHtml(movie.title || '')}"
+            onchange="saveField(${idx}, 'title', this.value)"
+            oninput="markSaved(${idx})">
+        </div>
+
+        <div>
+          <div class="field-label">观影日期</div>
+          <input class="film-date-input" type="date" id="dateInput_${idx}"
+            value="${movie.date || ''}"
+            onchange="saveField(${idx}, 'date', this.value)">
+        </div>
+
+        <div style="margin-top:8px">
+          <span class="save-indicator" id="saved_${idx}">✓ 已同步</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comments-section">
+      <div class="section-heading">寻求建言</div>
+
+      <div class="comment-form">
+        <div class="form-row">
+          <input class="form-input" id="cname_${idx}" placeholder="你的名字">
+          <input class="form-input" id="cemail_${idx}" placeholder="标题（选填）" style="font-style:italic">
+        </div>
+        <textarea class="form-textarea" id="ctext_${idx}" placeholder="想说的..."></textarea>
+        <div style="margin-top:12px;display:flex;justify-content:flex-end">
+          <button class="btn btn-gold" id="submitBtn_${idx}" onclick="submitComment(${idx})">ENTER</button>
+        </div>
+      </div>
+
+      <div class="comments-list" id="commentsList_${idx}">
+        <div class="comments-loading">正在加载评论…</div>
+      </div>
+    </div>
+  `;
+
+  return card;
+}
+
+async function loadCommentsIntoCard(movieId, idx) {
+  const list = document.getElementById(`commentsList_${idx}`);
+  if (!list) return;
+
+  const comments = await fetchComments(movieId);
+  list.innerHTML = comments.length
+    ? comments.map(c => buildCommentHtml(c, idx)).join('')
+    : '<div class="comments-loading">还没有评论，来第一个留言吧～</div>';
+}
+
+function buildCommentHtml(c, pageIdx) {
+  const time = new Date(c.created_at).toLocaleDateString('zh-CN', {
+    month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+  return `
+    <div class="comment-card" data-comment-id="${c.id}">
+      <div class="comment-author">
+        <div class="comment-author-name">${escHtml(c.name)}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="comment-time">${time}</span>
+          <button class="btn btn-danger" onclick="handleDeleteComment('${c.id}', ${pageIdx})">删除</button>
+        </div>
+      </div>
+      ${c.subtitle ? `<div style="font-size:13px;color:var(--gold);opacity:0.7;margin-bottom:8px;padding-left:28px;font-style:italic">${escHtml(c.subtitle)}</div>` : ''}
+      <div class="comment-text">${escHtml(c.text).replace(/\n/g, '<br>')}</div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════════════════════
+function navigate(dir) {
+  currentIndex = Math.max(0, Math.min(movies.length - 1, currentIndex + dir));
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADD WEEK
+// ══════════════════════════════════════════════════════════════════════════════
+function openAddModal() {
+  const d = new Date();
+  const daysUntilSat = (6 - d.getDay() + 7) % 7 || 7;
+  d.setDate(d.getDate() + daysUntilSat);
+  document.getElementById('newDate').value   = d.toISOString().split('T')[0];
+  document.getElementById('newTitle').value  = '';
+  document.getElementById('newPoster').value = '';
+  openModal('addModal');
+}
+
+async function addWeek() {
+  const title  = document.getElementById('newTitle').value.trim();
+  const date   = document.getElementById('newDate').value;
+  const poster = document.getElementById('newPoster').value.trim();
+
+  if (!title) { showToast('请填写电影标题', true); return; }
+
+  const btn = document.getElementById('addWeekBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+
+  const newMovie = await insertMovie(title, date, poster);
+  if (newMovie) {
+    movies.push(newMovie);
+    currentIndex = movies.length - 1;
     closeModal('addModal');
     render();
   }
 
-  async function deletePage() {
-    pages.splice(currentIndex, 1);
-    currentIndex = Math.min(currentIndex, pages.length - 1);
-    await saveDataToSupabase(pages);
+  btn.disabled = false;
+  btn.textContent = '创建';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DELETE PAGE
+// ══════════════════════════════════════════════════════════════════════════════
+function confirmDelete() { openModal('deleteModal'); }
+
+async function deletePage() {
+  const movie = movies[currentIndex];
+  const btn = document.getElementById('deleteConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = '删除中…';
+
+  const ok = await deleteMovie(movie.id);
+  if (ok) {
+    movies.splice(currentIndex, 1);
+    currentIndex = Math.min(currentIndex, movies.length - 1);
+    showToast('已删除「' + (movie.title || '此页') + '」');
     closeModal('deleteModal');
     render();
   }
 
-  // 导航
-  function navigate(dir) {
-    currentIndex = Math.max(0, Math.min(pages.length - 1, currentIndex + dir));
-    render();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  btn.disabled = false;
+  btn.textContent = '确认删除';
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EDIT FIELDS
+// ══════════════════════════════════════════════════════════════════════════════
+let saveTimers = {};
+
+function markSaved(idx) {
+  clearTimeout(saveTimers[idx]);
+  saveTimers[idx] = setTimeout(async () => {
+    const titleEl = document.getElementById(`titleInput_${idx}`);
+    if (titleEl) {
+      const ok = await updateMovie(movies[idx].id, { title: titleEl.value });
+      if (ok) { movies[idx].title = titleEl.value; flashSaved(idx); }
+    }
+  }, 900);
+}
+
+async function saveField(idx, key, value) {
+  const ok = await updateMovie(movies[idx].id, { [key]: value });
+  if (ok) { movies[idx][key] = value; flashSaved(idx); }
+}
+
+async function savePosterUrl(idx) {
+  const url = document.getElementById(`posterUrlInput_${idx}`).value.trim();
+  const ok  = await updateMovie(movies[idx].id, { poster_url: url || null });
+  if (!ok) return;
+
+  movies[idx].poster_url = url;
+  flashSaved(idx);
+
+  const wrap        = document.getElementById(`posterWrap_${idx}`);
+  const placeholder = document.getElementById(`posterPlaceholder_${idx}`);
+  let img           = document.getElementById(`posterImg_${idx}`);
+
+  if (url) {
+    if (placeholder) placeholder.remove();
+    if (!img) {
+      img = document.createElement('img');
+      img.className = 'poster-img';
+      img.id        = `posterImg_${idx}`;
+      img.alt       = '海报';
+      img.onerror   = () => { img.style.display = 'none'; };
+      wrap.insertBefore(img, wrap.firstChild);
+    }
+    img.src          = url;
+    img.style.display = '';
+  } else if (img) {
+    img.style.display = 'none';
   }
 
-  // 模态框
-  function openModal(id) { document.getElementById(id).classList.add('open'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-  function openAddModal() {
-    const d = new Date();
-    const day = d.getDay();
-    const daysUntilSat = (6 - day + 7) % 7 || 7;
-    d.setDate(d.getDate() + daysUntilSat);
-    document.getElementById('newDate').value = d.toISOString().split('T')[0];
-    document.getElementById('newTitle').value = '';
-    openModal('addModal');
+  showToast('✓ 海报已更新');
+}
+
+function flashSaved(idx) {
+  const el = document.getElementById(`saved_${idx}`);
+  if (!el) return;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// COMMENTS
+// ══════════════════════════════════════════════════════════════════════════════
+async function submitComment(idx) {
+  const name     = document.getElementById(`cname_${idx}`).value.trim();
+  const subtitle = document.getElementById(`cemail_${idx}`).value.trim();
+  const text     = document.getElementById(`ctext_${idx}`).value.trim();
+
+  if (!name || !text) { showToast('请填写名字和评论内容', true); return; }
+
+  const btn = document.getElementById(`submitBtn_${idx}`);
+  btn.disabled    = true;
+  btn.textContent = '提交中…';
+
+  const movieId = movies[idx].id;
+  const comment = await insertComment(movieId, name, subtitle, text);
+
+  if (comment) {
+    const list = document.getElementById(`commentsList_${idx}`);
+    const placeholder = list.querySelector('.comments-loading');
+    if (placeholder) placeholder.remove();
+
+    list.insertAdjacentHTML('beforeend', buildCommentHtml(comment, idx));
+
+    document.getElementById(`cname_${idx}`).value  = '';
+    document.getElementById(`cemail_${idx}`).value = '';
+    document.getElementById(`ctext_${idx}`).value  = '';
+    showToast('✓ 评论已提交');
   }
-  function confirmDelete() { openModal('deleteModal'); }
 
-  // ==================== 初始化（从云端加载） ====================
-  async function init() {
-    // 显示加载提示
-    const container = document.getElementById('pagesContainer');
-    container.innerHTML = '<div style="text-align:center;padding:80px;color:var(--text-dim)">🎬 正在加载电影之夜...</div>';
-    const data = await loadDataFromSupabase();
-    pages = data;
-    currentIndex = pages.length > 0 ? pages.length - 1 : 0;
-    isLoading = false;
-    render();
+  btn.disabled    = false;
+  btn.textContent = 'ENTER';
+}
+
+async function handleDeleteComment(commentId, pageIdx) {
+  if (!confirm('确认删除这条评论？')) return;
+  const ok = await deleteComment(commentId);
+  if (ok) {
+    const card = document.querySelector(`[data-comment-id="${commentId}"]`);
+    if (card) card.remove();
+
+    const list = document.getElementById(`commentsList_${pageIdx}`);
+    if (list && list.querySelectorAll('.comment-card').length === 0) {
+      list.innerHTML = '<div class="comments-loading">还没有评论，来第一个留言吧～</div>';
+    }
+    showToast('评论已删除');
   }
+}
 
-  // 挂载全局函数（供内联 onclick 调用）
-  window.navigate = navigate;
-  window.openAddModal = openAddModal;
-  window.addWeek = addWeek;
-  window.confirmDelete = confirmDelete;
-  window.deletePage = deletePage;
-  window.updateField = updateField;
-  window.markSaved = markSaved;
-  window.uploadPoster = uploadPoster;
-  window.submitComment = submitComment;
-  window.deleteComment = deleteComment;
-  window.openModal = openModal;
-  window.closeModal = closeModal;
+// ══════════════════════════════════════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-  // 模态框点击背景关闭
-  document.querySelectorAll('.modal-overlay').forEach(el => {
-    el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
-  });
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
-    if (e.key === 'ArrowLeft' && !document.querySelector('.modal-overlay.open')) navigate(-1);
-    if (e.key === 'ArrowRight' && !document.querySelector('.modal-overlay.open')) navigate(1);
-  });
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
 
-  init();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
+  if (e.key === 'ArrowLeft'  && !document.querySelector('.modal-overlay.open')) navigate(-1);
+  if (e.key === 'ArrowRight' && !document.querySelector('.modal-overlay.open')) navigate(1);
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════════════════
+function escHtml(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+(async () => {
+  await fetchMovies();
+  if (movies.length > 0) currentIndex = movies.length - 1;
+  render();
+
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('hidden');
+  setTimeout(() => overlay.style.display = 'none', 500);
+})();
 </script>
+
+<!--
+════════════════════════════════════════════════════════════════════════════════
+  在 Supabase → SQL Editor 中执行一次，建表并开放权限
+════════════════════════════════════════════════════════════════════════════════
+
+-- 1. 电影表
+CREATE TABLE movies (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title       text NOT NULL,
+  date        date,
+  poster_url  text,
+  created_at  timestamptz DEFAULT now()
+);
+
+-- 2. 评论表（评论删除会随电影一起级联删除）
+CREATE TABLE comments (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  movie_id    uuid REFERENCES movies(id) ON DELETE CASCADE,
+  name        text NOT NULL,
+  subtitle    text,
+  text        text NOT NULL,
+  created_at  timestamptz DEFAULT now()
+);
+
+-- 3. 开放 anon 读写（RLS 策略）
+ALTER TABLE movies   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow all movies"
+  ON movies FOR ALL TO anon USING (true) WITH CHECK (true);
+
+CREATE POLICY "allow all comments"
+  ON comments FOR ALL TO anon USING (true) WITH CHECK (true);
+
+════════════════════════════════════════════════════════════════════════════════
+-->
 </body>
 </html>
